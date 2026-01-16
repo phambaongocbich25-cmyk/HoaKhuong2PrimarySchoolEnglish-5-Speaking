@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English 5 Speaking</title>
+
+<style>
+body{
+ font-family:"Comic Sans MS",Arial;
+ background:#e3f2fd;margin:0;padding:14px
+}
+.container{
+ max-width:1200px;margin:auto;
+ background:#fff;padding:20px;
+ border-radius:28px;
+ box-shadow:0 12px 30px rgba(0,0,0,.25)
+}
+h1{text-align:center;color:#0d47a1}
+.card{
+ background:#f5fbff;padding:14px;
+ margin-top:14px;border-radius:18px
+}
+input,select,textarea{
+ width:100%;padding:10px;
+ border-radius:14px;
+ border:2px solid #90caf9;margin-top:6px
+}
+button{
+ width:100%;padding:12px;
+ margin-top:10px;background:#1565c0;
+ color:#fff;border:none;border-radius:22px
+}
+.good{
+ background:#e8f5e9;color:#2e7d32;
+ padding:6px 10px;border-radius:12px;
+ cursor:pointer;font-weight:bold;margin:4px;display:inline-block
+}
+.star{font-size:28px}
+table{
+ width:100%;border-collapse:collapse;margin-top:10px
+}
+th,td{
+ border:1px solid #90caf9;padding:6px;text-align:center
+}
+.teacher{
+ display:none;margin-top:20px
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>🎤 English 5 Speaking</h1>
+
+<div class="card">
+<input id="studentName" placeholder="Student name">
+<input id="studentClass" placeholder="Class (5/1)">
+</div>
+
+<div class="card">
+<select id="mode">
+ <option value="unit">Speaking by Unit</option>
+ <option value="free">Free Speaking</option>
+</select>
+
+<select id="unit"></select>
+<p id="sample"></p>
+<button onclick="speak(sample.innerText)">▶ Listen sample</button>
+</div>
+
+<div class="card">
+<textarea id="studentText" rows="3"
+ placeholder="Press microphone and speak..."></textarea>
+<button onclick="start()">🎙 Start speaking</button>
+</div>
+
+<div class="card">
+<h3>🤖 Feedback</h3>
+<div id="fb"></div>
+<div id="stars" class="star"></div>
+</div>
+
+<div class="card">
+<button onclick="showTeacher()">📱 Teacher Page</button>
+</div>
+
+<div class="teacher" id="teacher">
+<h3>📊 Teacher Management</h3>
+<table>
+<tr><th>Name</th><th>Class</th><th>Unit</th><th>%</th><th>Stars</th><th>Date</th></tr>
+<tbody id="tlog"></tbody>
+</table>
+<button onclick="exportExcel()">📊 Export Excel</button>
+<button onclick="window.print()">🖨 Export PDF</button>
+</div>
+
+<audio id="clap" src="https://www.soundjay.com/human/applause-8.mp3"></audio>
+
+</div>
+
+<script>
+function speak(t){
+ let u=new SpeechSynthesisUtterance(t);
+ u.lang="en-GB";u.rate=0.85;
+ speechSynthesis.speak(u);
+}
+
+/* ===== UNIT DATA ===== */
+const units={
+1:{text:"Hello. My name is Hoang. I’m in Class 5/3. I live in the countryside. I like football.",
+keys:["name","class","live","countryside","football"]},
+5:{text:"I would like to be a teacher because I would like to teach children.",
+keys:["would","like","teacher","teach","children"]},
+6:{text:"Go past the library. Turn left. The computer room is on the second floor.",
+keys:["go","past","library","turn","left","computer","room","second","floor"]}
+};
+
+/* ===== LOAD UNIT ===== */
+const unitSel=document.getElementById("unit");
+Object.keys(units).forEach(u=>{
+ unitSel.innerHTML+=`<option value="${u}">Unit ${u}</option>`;
+});
+unitSel.onchange=()=>sample.innerText=units[unitSel.value].text;
+unitSel.onchange();
+
+/* ===== SPEECH ===== */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const r=new SR();r.lang="en-GB";
+
+function start(){r.start();}
+
+r.onresult=e=>{
+ let said=e.results[0][0].transcript.toLowerCase();
+ studentText.value=said;
+ fb.innerHTML="";
+ let errors=[];
+ let correct=0, total=0;
+
+ if(mode.value=="unit"){
+  let keys=units[unitSel.value].keys;
+  total=keys.length;
+  keys.forEach(k=>{
+   if(said.includes(k)) correct++;
+   else errors.push(k);
+  });
+ }else{
+  // FREE SPEAKING COMMON ERRORS
+  total=5;
+  if(said.includes("no pass")) errors.push("go past");
+  if(said.includes("want to be")) errors.push("would like");
+  if(said.includes("on left")) errors.push("on the left");
+  correct=total-errors.length;
+ }
+
+ if(errors.length==0){
+  fb.innerHTML="✅ Very good speaking!";
+ }else{
+  fb.innerHTML="❌ Please practise:<br>";
+  errors.forEach(w=>{
+   fb.innerHTML+=`<span class="good" onclick="speak('${w}')">🔊 ${w}</span>`;
+  });
+ }
+
+ let percent=Math.round(correct/total*100);
+ let star=percent>=90?5:percent>=75?4:percent>=60?3:percent>=40?2:1;
+ stars.innerText="⭐".repeat(star);
+
+ clap.play();
+ saveResult(percent,star);
+};
+
+/* ===== SAVE ===== */
+function saveResult(p,s){
+ let data=JSON.parse(localStorage.getItem("results")||"[]");
+ data.push({
+  name:studentName.value,
+  class:studentClass.value,
+  unit:mode.value=="unit"?"Unit "+unitSel.value:"Free",
+  percent:p,star:s,
+  date:new Date().toLocaleDateString()
+ });
+ localStorage.setItem("results",JSON.stringify(data));
+}
+
+/* ===== TEACHER PAGE ===== */
+function showTeacher(){
+ teacher.style.display="block";
+ let data=JSON.parse(localStorage.getItem("results")||"[]");
+ tlog.innerHTML="";
+ data.forEach(r=>{
+  tlog.innerHTML+=`<tr>
+   <td>${r.name}</td>
+   <td>${r.class}</td>
+   <td>${r.unit}</td>
+   <td>${r.percent}%</td>
+   <td>${"⭐".repeat(r.star)}</td>
+   <td>${r.date}</td>
+  </tr>`;
+ });
+}
+
+/* ===== EXPORT ===== */
+function exportExcel(){
+ let data=JSON.parse(localStorage.getItem("results")||"[]");
+ let csv="Name,Class,Unit,Percent,Stars,Date\n";
+ data.forEach(r=>{
+  csv+=`${r.name},${r.class},${r.unit},${r.percent},${r.star},${r.date}\n`;
+ });
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+ a.download="English5_Speaking_Report.csv";
+ a.click();
+}
+</script>
+
+</body>
+</html>
